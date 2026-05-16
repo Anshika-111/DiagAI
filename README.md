@@ -1,65 +1,126 @@
-# DiagnosticAI
+# DiagnosticAI 🩺
 
-An AI-powered medical scribe and patient portal built at HackUTD.
+> AI-powered medical scribe and patient portal — built at HackUTD 2025 in 24 hours.
 
-## What it does
+Doctors record consultations and get AI-generated clinical notes, ICD-10 codes, and medication suggestions instantly. Patients log in to a clean portal to view their visit summary, test results, and appointments — all in plain language.
 
-**Provider Portal** — A doctor starts a consultation, hits record, and the app streams audio to OpenAI Whisper every 8 seconds for live transcription. When the session ends, GPT-4o analyzes the full transcript and generates a SOAP clinical note, ICD-10 code, diagnosis, and medication suggestions. The doctor reviews and publishes to the patient.
+---
 
-**Patient Portal** — Patients log in to view their visit summary in plain language, test results, prescribed medications, and manage appointments.
+## Features
+
+**Provider Portal**
+- 🎙️ Live audio recording with 8-second chunked transcription via Gemini
+- 🤖 AI-generated SOAP notes, diagnosis, ICD-10 code, and medication suggestions
+- ✏️ Editable summary before publishing to the patient
+- 📅 Follow-up appointment scheduling
+
+**Patient Portal**
+- 📋 Visit summary in plain, non-clinical language
+- 💊 Prescribed medications with dosage and reason
+- 🧪 Test results with doctor notes and severity badges
+- 📆 Appointment booking and management
+
+---
+
+## Architecture
+
+```
+Browser
+  ├── /provider/record    → streams audio chunks every 8s
+  │                             → POST /api/transcribe → Gemini (audio → text)
+  ├── /provider/loading   → triggers analysis
+  │                             → POST /api/analyze   → Gemini (transcript → JSON)
+  │                             → returns: diagnosis, ICD-10, SOAP note, medications, patient summary
+  ├── /provider/summary   → doctor reviews & edits
+  │                             → POST /api/visits    → Supabase (saves full visit record)
+  └── /patient/dashboard  → GET /api/visits           → Supabase (reads visit by patient)
+```
+
+---
 
 ## Tech Stack
 
-- **Frontend/Backend:** Next.js 16 (App Router), TypeScript, Tailwind CSS
-- **AI:** OpenAI Whisper (transcription) + GPT-4o (clinical analysis)
-- **Database:** Supabase (PostgreSQL)
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router), TypeScript |
+| Styling | Tailwind CSS |
+| AI — Transcription | Google Gemini 1.5 Flash (base64 audio → transcript) |
+| AI — Clinical Analysis | Google Gemini 1.5 Flash (transcript → structured JSON) |
+| Database | Supabase (PostgreSQL) |
+| Deployment | Vercel-ready |
+
+---
+
+## API Routes
+
+All routes built with Next.js App Router. Input validation and error handling on every endpoint.
+
+| Route | Method | What it does |
+|---|---|---|
+| `/api/transcribe` | `POST` | Accepts `audio/webm` chunk via FormData, converts to base64, sends to Gemini, returns raw transcript text. Skips chunks under 1KB to avoid silent-audio API waste. |
+| `/api/analyze` | `POST` | Accepts full transcript + optional patient history. Sends structured clinical prompt to Gemini with `json_object` response format. Returns diagnosis, ICD-10 code, SOAP note, medications, and a plain-English patient summary. |
+| `/api/patients` | `GET` | Returns all patients from Supabase ordered by name. |
+| `/api/patients` | `POST` | Registers a new patient record in Supabase. |
+| `/api/visits` | `POST` | Saves a completed visit with full clinical data — transcript, diagnosis, ICD code, medications (JSONB), SOAP note, patient summary, follow-up date. |
+| `/api/visits` | `GET` | Returns visit history, optionally filtered by `patientId` query param. |
+
+---
+
+## Database Schema
+
+```sql
+create table patients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  date_of_birth date,
+  created_at timestamptz default now()
+);
+
+create table visits (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid references patients(id),
+  transcript text,
+  chief_complaint text,
+  symptoms jsonb,
+  diagnosis text,
+  icd_code text,
+  medications jsonb,
+  clinical_note text,
+  patient_summary text,
+  follow_up_date date,
+  status text default 'completed',
+  created_at timestamptz default now()
+);
+```
+
+---
 
 ## Setup
 
-1. Clone the repo and install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+git clone https://github.com/Anshika-111/DiagAI.git
+cd DiagAI
+npm install
+npm run dev
+```
 
-2. Copy the env example and fill in your keys:
-   ```bash
-   cp .env.local.example .env.local
-   ```
+Open [http://localhost:3000](http://localhost:3000)
 
-3. Set up Supabase tables (run in Supabase SQL editor):
-   ```sql
-   create table patients (
-     id uuid primary key default gen_random_uuid(),
-     name text not null,
-     date_of_birth date,
-     created_at timestamptz default now()
-   );
+### Environment Variables
 
-   create table visits (
-     id uuid primary key default gen_random_uuid(),
-     patient_id uuid references patients(id),
-     transcript text,
-     chief_complaint text,
-     symptoms jsonb,
-     diagnosis text,
-     icd_code text,
-     medications jsonb,
-     clinical_note text,
-     patient_summary text,
-     follow_up_date date,
-     status text default 'completed',
-     created_at timestamptz default now()
-   );
-   ```
+```bash
+GEMINI_API_KEY=                  # aistudio.google.com → Get API Key (free)
+NEXT_PUBLIC_SUPABASE_URL=        # Supabase project → Settings → API → Project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=   # Supabase project → Settings → API → anon public key
+```
 
-4. Run the dev server:
-   ```bash
-   npm run dev
-   ```
+Run the schema SQL above in your Supabase SQL Editor to create the tables.
 
-5. Open [http://localhost:3000](http://localhost:3000)
+---
 
 ## Team
 
-- Backend (API routes, Whisper/GPT-4o integration, Supabase): Anshika
-- Frontend (Provider & Patient portals, UI/UX): Avneet
+| Contributor | Role |
+|---|---|
+| **Anshika** ([@Anshika-111](https://github.com/Anshika-111)) | Backend — API routes, Gemini integration, Supabase schema & queries, TypeScript architecture |
+| **Avneet** ([@avneetkaur17](https://github.com/avneetkaur17)) | Frontend — Provider & Patient portal UI, React component architecture, routing |
