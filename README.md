@@ -1,6 +1,6 @@
 # DiagnosticAI 🩺
 
-> AI-powered medical scribe and patient portal — built at HackUTD 2025 in 24 hours.
+> AI-powered medical scribe and patient portal — built at Axxess Hackathon 2026 in 24 hours.
 
 Doctors record consultations and get AI-generated clinical notes, ICD-10 codes, and medication suggestions instantly. Patients log in to a clean portal to view their visit summary, test results, and appointments — all in plain language.
 
